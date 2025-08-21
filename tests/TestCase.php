@@ -1,6 +1,6 @@
 <?php
 
-namespace Dvarilek\FilamentTableViews\Tests;
+namespace Dvarilek\FilamentValidationOverview\Tests;
 
 use Dvarilek\FilamentValidationOverview\FilamentValidationOverviewServiceProvider;
 use Filament\Actions\ActionsServiceProvider;
