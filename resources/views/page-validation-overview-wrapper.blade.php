@@ -1,19 +1,12 @@
 @php
     use Dvarilek\FilamentValidationOverview\ValidationOverviewPlugin;
-    use Filament\Pages\Page;
+    use Dvarilek\FilamentValidationOverview\Components\ValidationOverview;
 
     $validationOverviewPlugin = ValidationOverviewPlugin::get();
-
-    $validationOverviewPlugin
-        ->forMountedAction(Page::class, fn ($action) => )
-        ->for(Page::class, function ($validationOverview, Page $page) {
-
-        })
-
-
-
+    $validationOverview = ValidationOverview::make($this);
 @endphp
 
-@if ($validationOverviewPlugin->isEnabledOnPage($this) && ($validationOverview = $validationOverviewPlugin->makeValidationOverview($this)))
+@if ($validationOverview = $validationOverviewPlugin->configureValidationOverview($validationOverview, $this))
     {{ $validationOverview }}
 @endif
+

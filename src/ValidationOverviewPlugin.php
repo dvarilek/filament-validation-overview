@@ -13,6 +13,7 @@ use Filament\Panel;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Support\Arr;
 
 /**
  * @phpstan-type ComponentClass class-string<Page|Resource>
@@ -21,27 +22,11 @@ class ValidationOverviewPlugin implements Plugin
 {
     public static string $name = 'dvarilek/filament-validation-overview';
 
-    protected bool $inAction = false;
-
-    /**
-     * @var bool|Closure(): bool
-     */
-    protected bool | Closure $isEnabledByDefault = true;
-
-    /**
-     * @var list<ComponentClass> | Closure(): list<ComponentClass>
-     */
-    protected array | Closure $enabledOn = [];
-
-    /**
-     * @var list<ComponentClass> | Closure(): list<ComponentClass>
-     */
-    protected array | Closure $disabledOn = [];
-
     /**
      * @var list<array{
      *       classes: (ComponentClass | list<ComponentClass>) | Closure(): (ComponentClass | list<ComponentClass>),
-     *       configureUsing: Closure(ValidationOverview $validationOverview, Page $page): ?ValidationOverview
+     *       actions?: (string | class-string<Action>) | list<string | class-string<Action>> | (Closure(Action $mountedAction): bool),
+     *       configureUsing: Closure(ValidationOverview $validationOverview, Page $page, ?Action $action): ?ValidationOverview
      *   }>
      */
     protected array $configurations = [];
@@ -52,38 +37,8 @@ class ValidationOverviewPlugin implements Plugin
     }
 
     /**
-     * @param  bool|Closure(): bool  $condition
-     */
-    public function enabledByDefault(bool | Closure $condition): static
-    {
-        $this->isEnabledByDefault = $condition;
-
-        return $this;
-    }
-
-    /**
-     * @param  list<ComponentClass>|Closure(): list<ComponentClass>  $enabledOn
-     */
-    public function enabledOn(array | Closure $enabledOn): static
-    {
-        $this->enabledOn = $enabledOn;
-
-        return $this;
-    }
-
-    /**
-     * @param  list<ComponentClass>|Closure(): list<ComponentClass>  $disabledOn
-     */
-    public function disabledOn(array | Closure $disabledOn): static
-    {
-        $this->disabledOn = $disabledOn;
-
-        return $this;
-    }
-
-    /**
      * @param  (ComponentClass | list<ComponentClass>) | Closure(): (ComponentClass | list<ComponentClass>)  $classes
-     * @param  Closure(ValidationOverview $validationOverview, Page $page): ?ValidationOverview  $configureUsing
+     * @param  Closure(ValidationOverview $validationOverview, Page $page, ?Action $action): ?ValidationOverview  $configureUsing
      */
     public function for(string | array | Closure $classes, Closure $configureUsing): static
     {
@@ -95,6 +50,11 @@ class ValidationOverviewPlugin implements Plugin
         return $this;
     }
 
+    /**
+     * @param  (ComponentClass | list<ComponentClass>) | Closure(): (ComponentClass | list<ComponentClass>)  $classes
+     * @param  (string | class-string<Action>) | list<string | class-string<Action>> | (Closure(Action $mountedAction): bool)  $actions
+     * @param  Closure(ValidationOverview $validationOverview, Page $page, ?Action $action): ?ValidationOverview  $configureUsing
+     */
     public function forAction(string | array | Closure $classes, string | array | Closure $actions, Closure $configureUsing): static
     {
         $this->configurations[] = [
@@ -106,94 +66,72 @@ class ValidationOverviewPlugin implements Plugin
         return $this;
     }
 
-    public function getId(): string
-    {
-        return self::$name;
-    }
-
-    public function isEnabledOnPage(Page $page, ?Action $action = null): bool
-    {
-        $pageClass = $page::class;
-
-        $enabledOn = $this->enabledOn instanceof Closure ? ($this->enabledOn)() : $this->enabledOn;
-        $disabledOn = $this->disabledOn instanceof Closure ? ($this->disabledOn)() : $this->disabledOn;
-        $isEnabledByDefault = (bool) ($this->isEnabledByDefault instanceof Closure ? ($this->isEnabledByDefault)() : $this->isEnabledByDefault);
-
-        if ($action) {
-
-        }
-
-        foreach ($this->preferPagesOverResources($disabledOn) as $disabled) {
-            if ($this->matchesPageClass($pageClass, [$disabled])) {
-                return false;
-            }
-        }
-
-        foreach ($this->preferPagesOverResources($enabledOn) as $enabled) {
-            if ($this->matchesPageClass($pageClass, [$enabled])) {
-                return true;
-            }
-        }
-
-        return $isEnabledByDefault;
-    }
-
-    public function configureValidationOverview(ValidationOverview $validationOverview, Page $page): ?ValidationOverview
+    public function configureValidationOverview(ValidationOverview $validationOverview, Page $page, ?Action $mountedAction = null): ?ValidationOverview
     {
         if (blank($this->configurations)) {
             return null;
         }
 
-        $pageClass = $page::class;
+        $isConfigured = false;
 
-        foreach ($this->configurations as $configuration) {
-            $classes = $configuration['classes'] instanceof Closure ? ($configuration['classes'])() : $configuration['classes'];
-            $configureUsing = $configuration['configureUsing'];
+        $configureValidationOverviewForPage = static function (array $classes, Closure $configureUsing) use ($validationOverview, $page, $mountedAction, &$isConfigured): ?ValidationOverview {
+            $pageClass = $page::class;
 
-            if (! is_array($classes)) {
-                $classes = [$classes];
-            }
-
-            foreach ($this->preferPagesOverResources($classes) as $class) {
+            /* @phpstan-ignore-next-line */
+            foreach ($classes as $class) {
                 if ($class === $pageClass) {
-                    return $configureUsing($validationOverview, $page);
+                    $isConfigured = true;
+
+                    return $configureUsing($validationOverview, $page, $mountedAction);
                 }
 
                 if (is_subclass_of($class, Resource::class)) {
                     $pages = array_map(static fn (PageRegistration $pageRegistration) => $pageRegistration->getPage(), $class::getPages());
 
                     if (in_array($pageClass, $pages)) {
-                        return $configureUsing($validationOverview, $page);
+                        $isConfigured = true;
+
+                        return $configureUsing($validationOverview, $page, $mountedAction);
                     }
                 }
 
             }
-        }
 
-        return null;
-    }
+            return null;
+        };
 
-    /**
-     * @param  class-string<Page>  $pageClass
-     * @param  list<ComponentClass>  $classes
-     */
-    protected function matchesPageClass(string $pageClass, array $classes): bool
-    {
-        foreach ($this->preferPagesOverResources($classes) as $class) {
-            if ($class === $pageClass) {
-                return true;
+        foreach ($this->configurations as $configuration) {
+            if ($isConfigured) {
+                break;
             }
 
-            if (is_subclass_of($class, Resource::class)) {
-                $pages = array_map(static fn (PageRegistration $pageRegistration) => $pageRegistration->getPage(), $class::getPages());
+            $classes = Arr::wrap($configuration['classes'] instanceof Closure ? ($configuration['classes'])() : $configuration['classes']);
+            $configureUsing = $configuration['configureUsing'];
 
-                if (in_array($pageClass, $pages, true)) {
-                    return true;
+            if ($mountedAction && (($actions = ($configuration['actions'] ?? null)))) {
+                if ($actions instanceof Closure) {
+                    if ($actions($mountedAction) === true) {
+                        $validationOverview = $configureValidationOverviewForPage($classes, $configureUsing);
+                    }
+
+                    continue;
                 }
+
+                foreach (Arr::wrap($actions) as $action) {
+                    if ($action !== $mountedAction::class && $action !== $mountedAction->getName()) {
+                        continue;
+                    }
+
+                    $validationOverview = $configureValidationOverviewForPage($classes, $configureUsing);
+                }
+
+                continue;
             }
+
+            $validationOverview = $configureValidationOverviewForPage($classes, $configureUsing);
         }
 
-        return false;
+        return $validationOverview;
     }
 
     /**
@@ -218,23 +156,26 @@ class ValidationOverviewPlugin implements Plugin
         return [...$partitionedClasses['pages'], ...$partitionedClasses['resources']];
     }
 
-    public static function get(bool $inAction): static
+    public function getId(): string
     {
-        return filament(app(static::class, [
-            'inAction' => $inAction,
-        ])->getId());
+        return self::$name;
+    }
+
+    public static function get(): static
+    {
+        return filament(static::make()->getId());
     }
 
     public function register(Panel $panel): void
     {
         $panel->renderHook(
             PanelsRenderHook::PAGE_HEADER_WIDGETS_AFTER,
-            fn () => view('page-validation-overview-wrapper::overview-wrapper')
+            fn () => view('filament-validation-overview::page-validation-overview-wrapper')
         );
 
         $panel->renderHook(
-            PanelsRenderHook::PAGE_HEADER_WIDGETS_AFTER, // TODO: Change the render hook
-            fn () => view('page-validation-overview-wrapper::overview-wrapper')
+            PanelsRenderHook::PAGE_FOOTER_WIDGETS_AFTER, // TODO: Change the render hook
+            fn () => view('filament-validation-overview::action-validation-overview-wrapper')
         );
     }
 
