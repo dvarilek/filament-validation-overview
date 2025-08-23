@@ -7,43 +7,63 @@ namespace Dvarilek\FilamentValidationOverview;
 use Closure;
 use Dvarilek\FilamentValidationOverview\Components\ValidationOverview;
 use Filament\Actions\Action;
+use Filament\Actions\Contracts\HasActions;
 use Filament\Contracts\Plugin;
 use Filament\Pages\Page;
 use Filament\Panel;
+use Filament\Schemas\Contracts\HasSchemas;
+use Filament\Actions\Concerns\HasAction;
 use Filament\Resources\Pages\PageRegistration;
 use Filament\Resources\Resource;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Arr;
 
-/**
- * @phpstan-type ComponentClass class-string<Page|Resource>
- */
 class ValidationOverviewPlugin implements Plugin
 {
     public static string $name = 'dvarilek/filament-validation-overview';
 
     /**
      * @var list<array{
-     *       classes: (ComponentClass | list<ComponentClass>) | Closure(): (ComponentClass | list<ComponentClass>),
-     *       actions?: (string | class-string<Action>) | list<string | class-string<Action>> | (Closure(Action $mountedAction): bool),
-     *       configureUsing: Closure(ValidationOverview $validationOverview, Page $page, ?Action $action): ?ValidationOverview
+     *       components: (class-string<HasSchemas> | list<class-string<HasSchemas>>) | Closure(): (class-string<HasSchemas> | list<class-string<HasSchemas>>),
+     *       configureUsing: Closure(ValidationOverview $validationOverview, HasSchemas $livewire): ?ValidationOverview
      *   }>
      */
-    protected array $configurations = [];
-
-    public static function make(): static
-    {
-        return app(static::class);
-    }
+    protected array $componentConfigurations = [];
 
     /**
-     * @param  (ComponentClass | list<ComponentClass>) | Closure(): (ComponentClass | list<ComponentClass>)  $classes
-     * @param  Closure(ValidationOverview $validationOverview, Page $page, ?Action $action): ?ValidationOverview  $configureUsing
+     * @var list<array{
+     *       components: (class-string<HasSchemas&HasActions> | list<class-string<HasSchemas&HasActions>>) | Closure(): (class-string<HasSchemas&HasActions> | list<class-string<HasSchemas&HasActions>>),
+     *       actions: (string | class-string<Action>) | list<string | class-string<Action>> | (Closure(Action $action): bool),
+     *       configureUsing: Closure(ValidationOverview $validationOverview, HasSchemas&HasActions $livewire, Action $action): ?ValidationOverview
+     *   }>
      */
-    public function for(string | array | Closure $classes, Closure $configureUsing): static
+    protected array $componentActionConfigurations = [];
+
+    /**
+     * @var list<array{
+     *       resources: (class-string<Resource> | list<class-string<Resource>>) | Closure(): (class-string<Resource> | list<class-string<Resource>>),
+     *       configureUsing: Closure(ValidationOverview $validationOverview, HasSchemas $livewire): ?ValidationOverview
+     *   }>
+     */
+    protected array $resourceConfigurations = [];
+
+    /**
+     * @var list<array{
+     *       resources: (class-string<Resource> | list<class-string<Resource>>) | Closure(): (class-string<Resource> | list<class-string<Resource>>),
+     *       actions: (string | class-string<Action>) | list<string | class-string<Action>> | (Closure(Action $action): bool),
+     *       configureUsing: Closure(ValidationOverview $validationOverview, HasSchemas&HasActions $livewire, Action $action): ?ValidationOverview
+     *   }>
+     */
+    protected array $resourceActionConfigurations = [];
+
+    /**
+     * @param  (class-string<HasSchemas> | list<class-string<HasSchemas>>) | Closure(): (class-string<HasSchemas> | list<class-string<HasSchemas>>)  $components
+     * @param  Closure(ValidationOverview $validationOverview, HasSchemas $livewire): ?ValidationOverview  $configureUsing
+     */
+    public function for(string | array | Closure $components, Closure $configureUsing): static
     {
-        $this->configurations[] = [
-            'classes' => $classes,
+        $this->componentConfigurations[] = [
+            'components' => $components,
             'configureUsing' => $configureUsing,
         ];
 
@@ -51,14 +71,14 @@ class ValidationOverviewPlugin implements Plugin
     }
 
     /**
-     * @param  (ComponentClass | list<ComponentClass>) | Closure(): (ComponentClass | list<ComponentClass>)  $classes
-     * @param  (string | class-string<Action>) | list<string | class-string<Action>> | (Closure(Action $mountedAction): bool)  $actions
-     * @param  Closure(ValidationOverview $validationOverview, Page $page, ?Action $action): ?ValidationOverview  $configureUsing
+     * @param  (class-string<HasSchemas&HasActions> | list<class-string<HasSchemas&HasActions>>) | Closure(): (class-string<HasSchemas&HasActions> | list<class-string<HasSchemas&HasActions>>)  $components
+     * @param  (string | class-string<Action>) | list<string | class-string<Action>> | (Closure(Action $action): bool)  $actions
+     * @param  Closure(ValidationOverview $validationOverview, HasSchemas&HasActions $livewire, Action $action): ?ValidationOverview  $configureUsing
      */
-    public function forAction(string | array | Closure $classes, string | array | Closure $actions, Closure $configureUsing): static
+    public function forAction(string | array | Closure $components, string | array | Closure $actions, Closure $configureUsing): static
     {
-        $this->configurations[] = [
-            'classes' => $classes,
+        $this->componentActionConfigurations[] = [
+            'components' => $components,
             'actions' => $actions,
             'configureUsing' => $configureUsing,
         ];
@@ -66,94 +86,39 @@ class ValidationOverviewPlugin implements Plugin
         return $this;
     }
 
-    public function configureValidationOverview(ValidationOverview $validationOverview, Page $page, ?Action $mountedAction = null): ?ValidationOverview
+    /**
+     * @param  (class-string<Resource> | list<class-string<Resource>>) | Closure(): (class-string<Resource> | list<class-string<Resource>>)  $resources
+     * @param  Closure(ValidationOverview $validationOverview, HasSchemas $livewire): ?ValidationOverview  $configureUsing
+     */
+    public function forResource(string | array | Closure $resources, Closure $configureUsing): static
     {
-        if (blank($this->configurations)) {
-            return null;
-        }
+        $this->resourceConfigurations[] = [
+            'resources' => $resources,
+            'configureUsing' => $configureUsing,
+        ];
 
-        $isConfigured = false;
-
-        $configureValidationOverviewForPage = static function (array $classes, Closure $configureUsing) use ($validationOverview, $page, $mountedAction, &$isConfigured): ?ValidationOverview {
-            $pageClass = $page::class;
-
-            /* @phpstan-ignore-next-line */
-            foreach ($classes as $class) {
-                if ($class === $pageClass) {
-                    $isConfigured = true;
-
-                    return $configureUsing($validationOverview, $page, $mountedAction);
-                }
-
-                if (is_subclass_of($class, Resource::class)) {
-                    $pages = array_map(static fn (PageRegistration $pageRegistration) => $pageRegistration->getPage(), $class::getPages());
-
-                    if (in_array($pageClass, $pages)) {
-                        $isConfigured = true;
-
-                        return $configureUsing($validationOverview, $page, $mountedAction);
-                    }
-                }
-
-            }
-
-            return null;
-        };
-
-        foreach ($this->configurations as $configuration) {
-            if ($isConfigured) {
-                break;
-            }
-
-            $classes = Arr::wrap($configuration['classes'] instanceof Closure ? ($configuration['classes'])() : $configuration['classes']);
-            $configureUsing = $configuration['configureUsing'];
-
-            if ($mountedAction && (($actions = ($configuration['actions'] ?? null)))) {
-                if ($actions instanceof Closure) {
-                    if ($actions($mountedAction) === true) {
-                        $validationOverview = $configureValidationOverviewForPage($classes, $configureUsing);
-                    }
-
-                    continue;
-                }
-
-                foreach (Arr::wrap($actions) as $action) {
-                    if ($action !== $mountedAction::class && $action !== $mountedAction->getName()) {
-                        continue;
-                    }
-
-                    $validationOverview = $configureValidationOverviewForPage($classes, $configureUsing);
-                }
-
-                continue;
-            }
-
-            $validationOverview = $configureValidationOverviewForPage($classes, $configureUsing);
-        }
-
-        return $validationOverview;
+        return $this;
     }
 
     /**
-     * @param  list<ComponentClass>  $classes
-     * @return list<ComponentClass>
+     * @param  (class-string<Resource> | list<class-string<Resource>>) | Closure(): (class-string<Resource> | list<class-string<Resource>>)  $resources
+     * @param  (string | class-string<Action>) | list<string | class-string<Action>> | (Closure(Action $action): bool)  $actions
+     * @param  Closure(ValidationOverview $validationOverview, HasSchemas&HasActions $livewire, Action $action): ?ValidationOverview  $configureUsing
      */
-    protected function preferPagesOverResources(array $classes): array
+    public function forResourceAction(string | array | Closure $resources, string | array | Closure $actions, Closure $configureUsing): static
     {
-        $partitionedClasses = array_reduce($classes, function (array $carry, string $class) {
-            if (is_subclass_of($class, Page::class)) {
-                $carry['pages'][] = $class;
-            } elseif (is_subclass_of($class, Resource::class)) {
-                $carry['resources'][] = $class;
-            }
+        $this->resourceActionConfigurations[] = [
+            'resources' => $resources,
+            'actions' => $actions,
+            'configureUsing' => $configureUsing,
+        ];
 
-            return $carry;
-        }, ['pages' => [], 'resources' => []]);
+        return $this;
+    }
 
-        /**
-         * @var list<ComponentClass>
-         */
-        return [...$partitionedClasses['pages'], ...$partitionedClasses['resources']];
+    public static function make(): static
+    {
+        return app(static::class);
     }
 
     public function getId(): string
@@ -164,6 +129,105 @@ class ValidationOverviewPlugin implements Plugin
     public static function get(): static
     {
         return filament(static::make()->getId());
+    }
+
+    public function configureValidationOverview(ValidationOverview $validationOverview, HasSchemas $livewire, ?Action $mountedAction = null): ?ValidationOverview
+    {
+        if ($mountedAction) {
+            return $this->applyComponentActionConfiguration($validationOverview, $livewire, $mountedAction);
+        }
+
+        return $this->applyComponentConfiguration($validationOverview, $livewire);
+    }
+
+    protected function applyComponentConfiguration(ValidationOverview $validationOverview, HasSchemas $livewire): ?ValidationOverview
+    {
+        $livewireClass = $livewire::class;
+
+        foreach ($this->componentConfigurations as $configuration) {
+            $components = Arr::wrap($configuration['components'] instanceof Closure ? ($configuration['components'])() : $configuration['components']);
+            $configureUsing = $configuration['configureUsing'];
+
+            foreach ($components as $component) {
+                if ($component !== $livewireClass) {
+                    continue;
+                }
+
+                return $configureUsing($validationOverview, $livewire);
+            }
+        }
+
+        foreach ($this->resourceConfigurations as $configuration) {
+            $resources = Arr::wrap($configuration['resources'] instanceof Closure ? ($configuration['resources'])() : $configuration['resources']);
+            $configureUsing = $configuration['configureUsing'];
+
+            foreach ($resources as $resource) {
+                $pages = array_map(static fn (PageRegistration $pageRegistration) => $pageRegistration->getPage(), $resource::getPages());
+
+                if (! in_array($livewireClass, $pages)) {
+                    continue;
+                }
+
+                return $configureUsing($validationOverview, $livewire);
+            }
+        }
+
+        return null;
+    }
+
+    protected function applyComponentActionConfiguration(ValidationOverview $validationOverview, HasSchemas&HasActions $livewire, Action $mountedAction): ?ValidationOverview
+    {
+        $livewireClass = $livewire::class;
+
+        foreach ($this->componentActionConfigurations as $configuration) {
+            $components = Arr::wrap($configuration['components'] instanceof Closure ? ($configuration['components'])() : $configuration['components']);
+            $configureUsing = $configuration['configureUsing'];
+
+            foreach ($components as $component) {
+                if ($component !== $livewireClass) {
+                    continue;
+                }
+
+                if ($actions instanceof Closure && $actions($mountedAction) === true) {
+                    return $configureUsing($validationOverview, $livewire, $mountedAction);
+                }
+
+                foreach (Arr::wrap($actions) as $action) {
+                    if ($action !== $mountedAction::class && $action !== $mountedAction->getName()) {
+                        continue;
+                    }
+
+                    return $configureUsing($validationOverview, $livewire, $mountedAction);
+                }
+            }
+        }
+
+        foreach ($this->resourceActionConfigurations as $configuration) {
+            $resources = Arr::wrap($configuration['resources'] instanceof Closure ? ($configuration['resources'])() : $configuration['resources']);
+            $configureUsing = $configuration['configureUsing'];
+
+            foreach ($resources as $resource) {
+                $pages = array_map(static fn (PageRegistration $pageRegistration) => $pageRegistration->getPage(), $resource::getPages());
+
+                if (! in_array($livewireClass, $pages)) {
+                    continue;
+                }
+
+                if ($actions instanceof Closure && $actions($mountedAction) === true) {
+                    return $configureUsing($validationOverview, $livewire, $mountedAction);
+                }
+
+                foreach (Arr::wrap($actions) as $action) {
+                    if ($action !== $mountedAction::class && $action !== $mountedAction->getName()) {
+                        continue;
+                    }
+
+                    return $configureUsing($validationOverview, $livewire, $mountedAction);
+                }
+            }
+        }
+
+        return null;
     }
 
     public function register(Panel $panel): void
