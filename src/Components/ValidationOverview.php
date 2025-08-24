@@ -17,11 +17,11 @@ class ValidationOverview extends ViewComponent
 
     protected string $view = 'filament-validation-overview::components.validation-overview';
 
-    protected string | Closure | null $heading = null;
+    protected string|Closure|null $heading = null;
 
-    protected string | Closure | null $description = null;
+    protected string|Closure|null $description = null;
 
-    protected bool | Closure $isSimple = false;
+    protected bool|Closure $isSimple = false;
 
     /**
      * @param  (Component&HasSchemas)|null  $livewire
@@ -42,21 +42,21 @@ class ValidationOverview extends ViewComponent
         return $static;
     }
 
-    public function heading(string | Closure $heading): static
+    public function heading(string|Closure $heading): static
     {
         $this->heading = $heading;
 
         return $this;
     }
 
-    public function description(string | Closure $description): static
+    public function description(string|Closure $description): static
     {
         $this->description = $description;
 
         return $this;
     }
 
-    public function simple(bool | Closure $condition = true): static
+    public function simple(bool|Closure $condition = true): static
     {
         $this->isSimple = $condition;
 

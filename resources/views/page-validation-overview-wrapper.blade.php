@@ -2,11 +2,14 @@
     use Dvarilek\FilamentValidationOverview\ValidationOverviewPlugin;
     use Dvarilek\FilamentValidationOverview\Components\ValidationOverview;
 
-    $validationOverviewPlugin = ValidationOverviewPlugin::get();
-    $validationOverview = ValidationOverview::make($this);
+    $baseValidationOverview = ValidationOverview::make($this);
+
+    $validationOverview = method_exists($this, 'validationOverview')
+        ? $this->validationOverview($baseValidationOverview)
+        : ValidationOverviewPlugin::get()->configureValidationOverview($baseValidationOverview, $this);
 @endphp
 
-@if ($validationOverview = $validationOverviewPlugin->configureValidationOverview($validationOverview, $this))
+@if ($validationOverview && $validationOverview->isVisible())
     {{ $validationOverview }}
 @endif
 

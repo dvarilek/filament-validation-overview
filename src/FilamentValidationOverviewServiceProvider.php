@@ -9,7 +9,6 @@ use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 class FilamentValidationOverviewServiceProvider extends PackageServiceProvider
 {
-
     public function configurePackage(Package $package): void
     {
         $package

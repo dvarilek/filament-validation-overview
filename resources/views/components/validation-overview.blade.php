@@ -2,15 +2,11 @@
     $heading = $getHeading();
     $description = $getDescription();
     $isSimple = $isSimple();
-
-    $isVisible = $isVisible();
 @endphp
 
-@if ($isVisible)
-    <div>
-        {{ $heading }}
+<div>
+    {{ $heading }}
 
-        {{ $description }}
-    </div>
-@endif
+    {{ $description }}
+</div>
 

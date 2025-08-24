@@ -2,13 +2,15 @@
     use Dvarilek\FilamentValidationOverview\ValidationOverviewPlugin;
     use Dvarilek\FilamentValidationOverview\Components\ValidationOverview;
 
-    $validationOverviewPlugin = ValidationOverviewPlugin::get();
+    $plugin = ValidationOverviewPlugin::get();
+    $baseValidationOverview = ValidationOverview::make($this);
 
-    $validationOverview = ValidationOverview::make()
-        ->livewire($this);
+    $validationOverview = method_exists($this, 'actionValidationOverview')
+        ? $this->actionValidationOverview($baseValidationOverview, $this->getMountedAction())
+        : ValidationOverviewPlugin::get()->configureValidationOverview($baseValidationOverview, $this, $this->getMountedAction());
 @endphp
 
-@if ($validationOverview = $validationOverviewPlugin->configureValidationOverview($validationOverview, $this, $this->getMountedAction()))
+@if ($validationOverview && $validationOverview->isVisible())
     {{ $validationOverview }}
 @endif
 
