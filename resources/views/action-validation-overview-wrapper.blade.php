@@ -5,9 +5,11 @@
     $plugin = ValidationOverviewPlugin::get();
     $baseValidationOverview = ValidationOverview::make($this);
 
-    $validationOverview = method_exists($this, 'actionValidationOverview')
-        ? $this->actionValidationOverview($baseValidationOverview, $this->getMountedAction())
-        : ValidationOverviewPlugin::get()->configureValidationOverview($baseValidationOverview, $this, $this->getMountedAction());
+    $validationOverview = match (true) {
+        method_exists($this, ($actionMethodName = $this->getMountedAction()->getName() . "ValidationOverview")) => $this->{$actionMethodName}($baseValidationOverview),
+        method_exists($this, 'actionValidationOverview') => $this->actionValidationOverview($baseValidationOverview, $action),
+        default => ValidationOverviewPlugin::get()->configureValidationOverview($baseValidationOverview, $this, $action)
+    };
 @endphp
 
 @if ($validationOverview && $validationOverview->isVisible())

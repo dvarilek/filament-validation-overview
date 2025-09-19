@@ -8,6 +8,7 @@ use Closure;
 use Dvarilek\FilamentValidationOverview\Components\ValidationOverview;
 use Filament\Actions\Action;
 use Filament\Actions\Contracts\HasActions;
+use Filament\Actions\View\ActionsRenderHook;
 use Filament\Contracts\Plugin;
 use Filament\Panel;
 use Filament\Resources\Pages\EditRecord;
@@ -580,8 +581,10 @@ class ValidationOverviewPlugin implements Plugin
             );
 
             $panel->renderHook(
-                PanelsRenderHook::PAGE_FOOTER_WIDGETS_AFTER, // TODO: Change the render hook
-                fn () => view('filament-validation-overview::action-validation-overview-wrapper')
+                ActionsRenderHook::MODAL_SCHEMA_BEFORE,
+                fn (Action $action) => view('filament-validation-overview::action-validation-overview-wrapper', [
+                    'action' => $action,
+                ])
             );
         }
     }
