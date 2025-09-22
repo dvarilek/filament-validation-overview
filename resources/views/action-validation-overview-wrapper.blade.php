@@ -2,7 +2,6 @@
     use Dvarilek\FilamentValidationOverview\ValidationOverviewPlugin;
     use Dvarilek\FilamentValidationOverview\Components\ValidationOverview;
 
-    $plugin = ValidationOverviewPlugin::get();
     $baseValidationOverview = ValidationOverview::make($this);
 
     $validationOverview = match (true) {
