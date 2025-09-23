@@ -100,8 +100,6 @@ class AdminPanelProvider extends PanelProvider
 
 The `default()` method allows you to set a default validation overview configuration (excluding validation overview in action modals).
 
-// TODO: This should also set default for action modals, actionDefault takes priority.
-
 ```php
 use Dvarilek\FilamentValidationOverview\ValidationOverviewPlugin;
 use Filament\Schemas\Contracts\HasSchemas;
@@ -112,8 +110,6 @@ ValidationOverviewPlugin::make()
         $validationOverview->description('Default description for validation overviews')
     })
 ```
-
-
 
 For configuring the validation overview instance itself, see [Validation overview configuration](#validation-overview-configuration)
 
@@ -205,4 +201,15 @@ ValidationOverviewPlugin::make()
 ***
 
 ### Validation overview configuration
+
+You can change the heading and description of a validation overview.
+
+```php
+use Dvarilek\FilamentValidationOverview\Components\ValidationOverview;
+
+/* @var ValidationOverview */
+$validationOverview
+    ->heading("")
+    ->description("Please resolve the folloing errors");
+```
 

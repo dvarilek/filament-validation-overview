@@ -63,6 +63,13 @@ class ValidationOverview extends ViewComponent
         return $this;
     }
 
+    public function getValidationErrors(): array
+    {
+        return [
+
+        ];
+    }
+
     public function getHeading(): ?string
     {
         return $this->evaluate($this->heading);
