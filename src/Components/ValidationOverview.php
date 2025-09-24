@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Dvarilek\FilamentValidationOverview\Components;
 
 use Closure;
-use Filament\Schemas\Concerns\BelongsToLivewire;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Support\Components\ViewComponent;
 use Livewire\Component;
 
 class ValidationOverview extends ViewComponent
 {
-    use BelongsToLivewire;
+    use Concerns\BelongsToLivewire;
     use Concerns\CanBeHidden;
 
     protected string $view = 'filament-validation-overview::components.validation-overview';
@@ -61,13 +60,6 @@ class ValidationOverview extends ViewComponent
         $this->isSimple = $condition;
 
         return $this;
-    }
-
-    public function getValidationErrors(): array
-    {
-        return [
-
-        ];
     }
 
     public function getHeading(): ?string
